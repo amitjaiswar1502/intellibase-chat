@@ -1,0 +1,100 @@
+// This is a simplified schema without pgvector for initial setup
+// We'll add vector support later
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model KnowledgeBase {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  documents    Document[]
+  conversations Conversation[]
+
+  @@map("knowledge_bases")
+}
+
+model Document {
+  id               String   @id @default(cuid())
+  knowledgeBaseId  String
+  originalFilename String
+  fileType         String
+  fileSize         Int
+  filePath         String
+  content          String?  // Extracted text content
+  metadata         String?  // JSON metadata
+  processingStatus String   @default("pending") // pending, processing, completed, failed
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  chunks        DocumentChunk[]
+
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id         String   @id @default(cuid())
+  documentId String
+  content    String
+  chunkIndex Int
+  metadata   String?  // JSON metadata
+  createdAt  DateTime @default(now())
+
+  // Relations
+  document  Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  embedding Embedding?
+
+  @@map("document_chunks")
+}
+
+model Embedding {
+  id              String   @id @default(cuid())
+  documentChunkId String   @unique
+  embedding       String   // JSON array of numbers
+  model           String   @default("text-embedding-3-small")
+  createdAt       DateTime @default(now())
+
+  // Relations
+  documentChunk DocumentChunk @relation(fields: [documentChunkId], references: [id], onDelete: Cascade)
+
+  @@map("embeddings")
+}
+
+model Conversation {
+  id             String   @id @default(cuid())
+  knowledgeBaseId String
+  title          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  messages      Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String   // user, assistant
+  content        String
+  createdAt      DateTime @default(now())
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
